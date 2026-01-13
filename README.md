@@ -30,21 +30,46 @@ The core of this app is `VoiceInterface.tsx`. Here is exactly how the "Magic" ha
 2.  **Gemini Backend:** Processes audio + System Prompt + Conversation History.
 3.  **Response:** Gemini sends back audio chunks (playback) OR functioning calling JSON.
 
-### 2. The Tool Calling Mechanism
-When you say *"Add a task for 5 PM"*:
-1.  **Intent Recognition:** Gemini pauses audio generation.
-2.  **Server Message:** Sends `tool_use` event with function name (`add_task`) and arguments (`{ task: "Gym", time: "5 PM" }`).
-3.  **Frontend Execution:** `VoiceInterface.tsx` intercepts this event.
-    *   It executes the logic (e.g., `App.tsx` -> `setTasks(...)`).
-    *   It sends a `tool_response` back to Gemini confirming success ("Task added").
-4.  **Visual Update:** The React component (`PlannerWorkspace`) re-renders instantly.
-5.  **Verbal Confirmation:** Gemini resumes speaking: *"Done! I've added Gym to your list."*
+## 🧠 Technical Architecture Deep Dive
 
-### 3. Stability Measures (Why it works smoothly)
-*   **Silent Execution Prompts:** Agents are instructed to call tools *without* narrating steps to prevent hallucinations.
-*   **1.5s Audio Debounce:** If you speak, the AI's audio queue is nuked and blocked for 1.5 seconds to ensure clean turn-taking.
-*   **Robust Type Handling:** The system auto-corrects messy model inputs (e.g., parsing "500 rupees" into `500`).
+### 1. The Tool Calling Lifecycle (How Actions Happen)
+When a user says *"Add a task for Gym at 5 PM"*:
 
+1.  **Intent Analysis (Cloud):** Gemini's Multimodal model analyzes the audio stream and identifies the intent matches the `add_task` tool definition.
+2.  **Server Event:** Gemini sends a `tool_use` JSON event over the WebSocket:
+    ```json
+    { "name": "add_task", "args": { "task": "Gym", "time": "5 PM" } }
+    ```
+3.  **Client Interception (`VoiceInterface.tsx`):**
+    *   The `handleFunctionCalls` function detects the tool name.
+    *   It triggers the `onAddTask` prop.
+4.  **State Update (`App.tsx`):**
+    *   `App.tsx` receives the data and calls `setTasks(prev => [...prev, newTask])`.
+    *   This React State update causes `PlannerWorkspace.tsx` to re-render instantly.
+5.  **Feedback Loop:**
+    *   `VoiceInterface` sends a `tool_response` back to Gemini: `{ "result": "Success" }`.
+    *   Gemini receives "Success" and generates the audio response: *"Done, added to your list."*
+
+### 2. Agent Switching Logic (The "Handover")
+The system mimics a "Call Transfer" between departments.
+
+1.  **Trigger:** User asks Bade Bhaiya (Master) for "Financial Advice".
+2.  **Tool Call:** Bade Bhaiya calls `connect_to_specialist` with `{ "agent_name": "IncomeAgent" }`.
+3.  **Teardown (`VoiceInterface.tsx`):**
+    *   The `onAgentTransfer` handler is triggered.
+    *   **CRITICAL:** The existing WebSocket connection to "Bade Bhaiya" is **CLOSED** (Code 1000).
+4.  **State Change:** `App.tsx` updates `currentAgent` state to `IncomeAgent`.
+5.  **Reconnection:**
+    *   `VoiceInterface` detects the prop change.
+    *   It initializes a **NEW WebSocket connection**, this time sending the `systemInstruction` for **CA Sahab**.
+    *   It injects the *shared context* (User Name, Summary) so the new agent knows what just happened.
+6.  **Result:** The user hears a new voice (CA Sahab) seamlessly picking up the conversation.
+
+### 3. Stability Engineering
+*   **Audio Debounce (1.5s):** To prevent the "Talking Over" issue, `VoiceInterface` ignores incoming audio for 1.5 seconds if the user speaks (`rms > 0.02`). This ensures clean barge-in.
+*   **Schema Flattening:** Complex nested objects (like standard JSON Resume) often crash real-time models. We flatten critical tools (e.g., `generate_resume`) to simple strings and arrays to ensure 100% stability.
+*   **Silent Execution:** Agents are prompted to `CALL TOOL FIRST` and `DO NOT NARRATE` actions. This prevents "Hallucinations" where the agent says "I did it" but forgets to actually call the code.
+    
 ---
 
 ## 🤖 Agent Roster & Tools
