@@ -1,150 +1,206 @@
-# Bade Bhaiya: The Agentic Family Wrapper
+# 🏠 Bade Bhaiya: The Agentic Family Wrapper
 
-A robust, multi-agent AI workspace where each agent ("family member") specializes in a specific domain, powered by **Google Gemini Multimodal Live API** (WebSocket).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![React](https://img.shields.io/badge/React-18.2-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue.svg)](https://www.typescriptlang.org/)
+[![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-orange.svg)](https://ai.google.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.1-purple.svg)](https://vitejs.dev/)
 
-![Bade Bhaiya Interface](https://via.placeholder.com/800x400?text=Bade+Bhaiya+Agent+Interface)
+A robust, multi-agent AI voice assistant where each agent ("family member") specializes in a specific domain, powered by **Google Gemini Multimodal Live API** (WebSocket).
 
 ## 🌟 Overview
 
 This application acts as a "Personified Operating System" for your life. Instead of dry menus, you talk to specialized personas:
-*   **Bade Bhaiya (Master Agent):** The wise orchestrator who routes you to the right specialist.
-*   **Rohan (Resume Agent):** A tech-savvy cousin who builds your CV in real-time.
-*   **CA Sahab (Finance Agent):** A strict, judgmental accountant who tracks your expenses.
-*   **Vikram (Day Planner):** An urgent, hyper-active event planner for your schedule.
+
+| Agent | Persona | Specialty |
+|-------|---------|-----------|
+| 🧔 **Bade Bhaiya** | Wise Elder Brother | Routes you to the right specialist |
+| 💼 **Rohan** | Tech-savvy Cousin | Builds your CV in real-time |
+| 📊 **CA Sahab** | Strict Accountant | Tracks expenses & lectures you |
+| ⏰ **Vikram** | Hyper Event Planner | Manages your schedule |
 
 ## 🚀 Key Features
 
-*   **Real-time Voice Conversation:** Low-latency 2-way audio using Gemini's WebSocket API.
-*   **Agentic Tool Calling:** Agents don't just talk; they *do*. They trigger frontend state updates (Resume Layouts, Transaction Logs, Task Lists) instantly.
-*   **"Barge-In" Interruptibility:** Interrupt the agent anytime. The system uses advanced client-side audio debouncing (1.5s) to stop the AI instantly and prevent overlapping audio.
-*   **Live Previews:** Visual workspaces that update *while* the agent speaks (Resume Preview, Ledger, Calendar).
+- **Real-time Voice Conversation:** Low-latency 2-way audio using Gemini's WebSocket API
+- **Agentic Tool Calling:** Agents trigger frontend state updates instantly
+- **"Barge-In" Interruptibility:** Interrupt the agent anytime with 1.5s audio debouncing
+- **Live Previews:** Visual workspaces update *while* the agent speaks
 
 ---
 
-## 🛠️ Architecture & Tool Calling Flow
+## 🛠️ Tech Stack
 
-The core of this app is `VoiceInterface.tsx`. Here is exactly how the "Magic" happens:
-
-### 1. The Speech Loop
-1.  **Microphone Input:** Browser Audio -> Downsampled to 16kHz PCM -> Base64 -> WebSocket.
-2.  **Gemini Backend:** Processes audio + System Prompt + Conversation History.
-3.  **Response:** Gemini sends back audio chunks (playback) OR functioning calling JSON.
-
-## 🧠 Technical Architecture Deep Dive
-
-### 1. The Tool Calling Lifecycle (How Actions Happen)
-When a user says *"Add a task for Gym at 5 PM"*:
-
-1.  **Intent Analysis (Cloud):** Gemini's Multimodal model analyzes the audio stream and identifies the intent matches the `add_task` tool definition.
-2.  **Server Event:** Gemini sends a `tool_use` JSON event over the WebSocket:
-    ```json
-    { "name": "add_task", "args": { "task": "Gym", "time": "5 PM" } }
-    ```
-3.  **Client Interception (`VoiceInterface.tsx`):**
-    *   The `handleFunctionCalls` function detects the tool name.
-    *   It triggers the `onAddTask` prop.
-4.  **State Update (`App.tsx`):**
-    *   `App.tsx` receives the data and calls `setTasks(prev => [...prev, newTask])`.
-    *   This React State update causes `PlannerWorkspace.tsx` to re-render instantly.
-5.  **Feedback Loop:**
-    *   `VoiceInterface` sends a `tool_response` back to Gemini: `{ "result": "Success" }`.
-    *   Gemini receives "Success" and generates the audio response: *"Done, added to your list."*
-
-### 2. Agent Switching Logic (The "Handover")
-The system mimics a "Call Transfer" between departments.
-
-1.  **Trigger:** User asks Bade Bhaiya (Master) for "Financial Advice".
-2.  **Tool Call:** Bade Bhaiya calls `connect_to_specialist` with `{ "agent_name": "IncomeAgent" }`.
-3.  **Teardown (`VoiceInterface.tsx`):**
-    *   The `onAgentTransfer` handler is triggered.
-    *   **CRITICAL:** The existing WebSocket connection to "Bade Bhaiya" is **CLOSED** (Code 1000).
-4.  **State Change:** `App.tsx` updates `currentAgent` state to `IncomeAgent`.
-5.  **Reconnection:**
-    *   `VoiceInterface` detects the prop change.
-    *   It initializes a **NEW WebSocket connection**, this time sending the `systemInstruction` for **CA Sahab**.
-    *   It injects the *shared context* (User Name, Summary) so the new agent knows what just happened.
-6.  **Result:** The user hears a new voice (CA Sahab) seamlessly picking up the conversation.
-
-### 3. Stability Engineering
-*   **Audio Debounce (1.5s):** To prevent the "Talking Over" issue, `VoiceInterface` ignores incoming audio for 1.5 seconds if the user speaks (`rms > 0.02`). This ensures clean barge-in.
-*   **Schema Flattening:** Complex nested objects (like standard JSON Resume) often crash real-time models. We flatten critical tools (e.g., `generate_resume`) to simple strings and arrays to ensure 100% stability.
-*   **Silent Execution:** Agents are prompted to `CALL TOOL FIRST` and `DO NOT NARRATE` actions. This prevents "Hallucinations" where the agent says "I did it" but forgets to actually call the code.
-    
----
-
-## 🤖 Agent Roster & Tools
-
-### 1. Bade Bhaiya (Master)
-*   **Role:** Router / Wise Counsel.
-*   **Tool:** `connect_to_specialist`
-*   **Trigger:** "I need help with [Resume/Money/Time]." -> Transfers context to the sub-agent.
-
-### 2. Rohan (Resume Builder)
-*   **Role:** Iterative CV Builder.
-*   **Tool 1:** `generate_resume` (Updates Name, Education, Experience, Skills, Projects).
-*   **Tool 2:** `update_resume_layout` (Moves sections dynamically, e.g., Left/Right column).
-*   **Special Logic:** Flattens complex schemas to prevent WebSocket crashes.
-
-### 3. CA Sahab (Finance)
-*   **Role:** Expense Tracker & Scolder.
-*   **Tool:** `log_transaction` (`amount`, `source`, `type`).
-*   **Behavior:** Lectures you on spending, then logs it.
-
-### 4. Vikram (Planner)
-*   **Role:** Schedule Manager.
-*   **Tool:** `add_task` (`task`, `time`).
-*   **Behavior:** Enforces sequential task entry to avoid parallel call errors.
+- **Frontend:** React 18 + TypeScript
+- **Styling:** TailwindCSS
+- **Build Tool:** Vite
+- **AI/Voice:** Google Gemini 2.5 Flash (Native Audio)
+- **Icons:** Lucide React
 
 ---
 
-## 💻 Local Development Setup
+## 🧠 Architecture
 
-1.  **Clone the Repo:**
-    ```bash
-    git clone https://github.com/Aadya-Madankar/Bade-Bhaiya.git
-    cd Bade-Bhaiya
-    ```
+### Tool Calling Flow
+```
+User Speech → Microphone → 16kHz PCM → WebSocket → Gemini
+                                                      ↓
+                                              Tool Call JSON
+                                                      ↓
+                              VoiceInterface.tsx ← handleFunctionCalls()
+                                                      ↓
+                                              App.tsx State Update
+                                                      ↓
+                                              Workspace Re-render
+                                                      ↓
+                              Gemini ← tool_response → Audio Confirmation
+```
 
-2.  **Install Dependencies:**
-    ```bash
-    npm install
-    ```
+### Agent Switching
+1. User requests specific help (Resume/Money/Schedule)
+2. Current agent calls `connect_to_specialist` tool
+3. WebSocket connection closes (Code 1000)
+4. App.tsx updates `currentAgent` state
+5. New WebSocket opens with new agent's system instruction
+6. Context is preserved and passed to new agent
 
-3.  **Configure Environment:**
-    *   Create a `.env` file in the root.
-    *   Add your Google Gemini API Key:
-    ```env
-    VITE_GEMINI_API_KEY=AIzaSy...YourKeyHere
-    ```
+### Stability Engineering
+- **Audio Debounce (1.5s):** Prevents "talking over" issues
+- **Schema Flattening:** Prevents WebSocket crashes with complex objects
+- **Silent Execution:** Agents call tools without narrating
 
-4.  **Run Dev Server:**
-    ```bash
-    npm run dev
-    ```
+---
+
+## 🤖 Agent Tools
+
+| Agent | Tools | Description |
+|-------|-------|-------------|
+| Bade Bhaiya | `connect_to_specialist` | Routes to sub-agents |
+| Rohan | `generate_resume`, `update_resume_layout` | CV building |
+| CA Sahab | `log_transaction` | Income/Expense tracking |
+| Vikram | `add_task` | Schedule management |
+
+---
+
+## 💻 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Google Gemini API Key ([Get one here](https://ai.google.dev/))
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/Aadya-Madankar/Bade-Bhaiya.git
+cd Bade-Bhaiya
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env and add your API key
+```
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+> ⚠️ **Important:** Never commit your `.env` file. It's already in `.gitignore`.
+
+### Run Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
 ## 🌍 Deployment (Vercel)
 
-This project is optimized for Vercel.
+1. **Push to GitHub** (ensure `.env` is NOT committed)
 
-1.  **Push to GitHub:**
-    *   Ensure `.gitignore` includes `.env` (Critical Security).
-    *   Push your code to the main branch.
+2. **Import to Vercel:**
+   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
+   - Click "Add New Project" → Import from GitHub
 
-2.  **Import to Vercel:**
-    *   Go to Vercel Dashboard -> Add New Project -> Import from GitHub.
+3. **Add Environment Variable:**
+   - Key: `VITE_GEMINI_API_KEY`
+   - Value: Your actual API key
 
-3.  **Environment Variables (CRITICAL):**
-    *   In the Vercel Project Settings during import, expand **Environment Variables**.
-    *   Key: `VITE_GEMINI_API_KEY`
-    *   Value: `Your_Actual_Google_API_Key`
-
-4.  **Deploy:** Click "Deploy". Vercel will build the React app and host it globally.
+4. **Deploy!**
 
 ---
 
-## 🔒 Security Note
-*   The `.env` file is git-ignored to protect your API key.
-*   **Do not commit real keys to GitHub.**
-*   In production (Vercel), the key is effectively public to anyone inspecting network traffic (Client-Side App). For strict production security, you should proxy requests through a backend, but for this portfolio demo, the client-side key is acceptable with usage limits.
+## 📁 Project Structure
+
+```
+bade-bhaiya-agent/
+├── src/
+│   ├── components/
+│   │   ├── VoiceInterface.tsx    # Core WebSocket & Audio handler
+│   │   ├── AgentDisplay.tsx      # Agent persona display
+│   │   ├── Onboarding.tsx        # User onboarding flow
+│   │   └── workspaces/
+│   │       ├── ResumeWorkspace.tsx
+│   │       ├── FinanceWorkspace.tsx
+│   │       └── PlannerWorkspace.tsx
+│   ├── constants.ts              # Agent configs & tool definitions
+│   ├── App.tsx                   # Main app state management
+│   └── types.ts                  # TypeScript interfaces
+├── .env.example                  # Environment template
+├── .gitignore                    # Git ignore rules
+└── package.json
+```
+
+---
+
+## 🔒 Security Notes
+
+- `.env` is git-ignored - your API key is safe locally
+- **Never hardcode API keys** in source files
+- In production (Vercel), add keys via Environment Variables
+- Client-side keys are visible in network traffic - use API quotas for protection
+
+---
+
+## 📄 Documentation
+
+For detailed agent prompts and expected input/output scenarios, see:
+- [SCENARIOS_AND_PROMPTS.md](./SCENARIOS_AND_PROMPTS.md)
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👨‍💻 Author
+
+**Aadya Madankar**
+- GitHub: [@Aadya-Madankar](https://github.com/Aadya-Madankar)
+
+---
+
+## 🙏 Acknowledgments
+
+- Google Gemini Team for the Multimodal Live API
+- The React and Vite communities

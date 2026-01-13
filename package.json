@@ -1,7 +1,23 @@
 {
   "name": "bade-bhaiya-agent",
-  "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Multi-agent AI Voice Assistant with distinct Indian personas - Resume Builder, Finance Tracker, Day Planner - powered by Google Gemini Multimodal Live API",
+  "author": "Aadya Madankar",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aadya-Madankar/Bade-Bhaiya.git"
+  },
+  "keywords": [
+    "gemini",
+    "voice-assistant",
+    "ai-agent",
+    "multi-agent",
+    "react",
+    "typescript",
+    "websocket",
+    "real-time"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
