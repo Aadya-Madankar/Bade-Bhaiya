@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-[#FDFBF7] text-gray-900 font-sans overflow-hidden;
+        background: #FDFBF7;
+    }
+}
+
+@layer utilities {
+    .glass-panel {
+        @apply bg-white border border-gray-200 shadow-xl;
+    }
+
+    .agent-card-active {
+        @apply bg-emerald-900 text-white;
+        box-shadow: 0 4px 12px rgba(6, 78, 59, 0.2);
+    }
+}
+
+/* Custom Scrollbar - Light Theme */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
