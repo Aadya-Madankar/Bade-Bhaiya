@@ -1,10 +1,10 @@
 import { AgentConfig, ToolDeclaration } from "./types";
 
-// Fallback to hardcoded key to prevent crash if .env is missing/ignored
-export const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyAM59366ypKj0xOxWCQmrUW1gtnCWPNuRo";
+// Fallback to empty string if env is missing. keys should NEVER be hardcoded.
+export const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
-if (!import.meta.env.VITE_GEMINI_API_KEY) {
-    console.warn("Using fallback API KEY. Please create a .env file for production security.");
+if (!API_KEY) {
+    console.error("CRITICAL: VITE_GEMINI_API_KEY is missing. Please add it to your .env file or Vercel Environment Variables.");
 }
 export const MODEL_NAME = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 
